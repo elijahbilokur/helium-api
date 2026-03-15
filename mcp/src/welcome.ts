@@ -27,16 +27,16 @@ const cy = (s: string): string => `${CYAN}${s}${RS}`;
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SWIRL = [
-  "   /~\\   /~\\   ",
-  "  (   \\ /   )  ",
-  "   \\ /~\\ /    ",
-  "    X   X     ",
-  "   / \\_/ \\   ",
-  "  (         ) ",
-  "   \\  /~\\  /  ",
-  "    \\(   )/   ",
-  "     \\   /    ",
-  "      \\_/     ",
+  "   /~~\\   /~~\\  ",
+  "  ( .--\\ /--.  )",
+  "   \\|   X   |/ ",
+  "    |  / \\  |  ",
+  "   /| /   \\ |\\ ",
+  "  ( |/     \\| )",
+  "   \\|  /~\\  |/ ",
+  "    \\ (   ) /  ",
+  "     \\     /   ",
+  "      '---'    ",
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ function printWelcome(): void {
 
   // ── swirl (left) + wordmark (right) on same rows ──────────────────────────
   const LEFT_W  = 18;  // swirl column visible width
-  const RIGHT_W = BOX_W - LEFT_W - 3; // remainder (with " " separator + space)
+  const RIGHT_W = BOX_W - LEFT_W - 4; // 1 leading + 2 middle + 1 trailing space
 
   const logoRows = Math.max(SWIRL.length, WORDMARK.length + 3);
   const wOff     = Math.floor((logoRows - WORDMARK.length) / 2); // vertical center

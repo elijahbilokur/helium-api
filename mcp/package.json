@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "ts-node src/index.ts",
+    "preview": "ts-node src/welcome.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"
   },

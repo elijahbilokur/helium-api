@@ -14,6 +14,12 @@ import {
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { RelayClient, RelayApiError } from "./client.js";
+import type {
+  Hotspot, Maker,
+  IotRewardShare, IotRewardTotals,
+  MobileRewardShare, MobileRewardTotals,
+  L1Account, L1Gateway, L1Transaction,
+} from "./types.js";
 
 export interface ServerConfig {
   email: string;
@@ -34,20 +40,22 @@ const TOOLS: Tool[] = [
     name: "list_hotspots",
     description:
       "Search and filter Helium L2 hotspots. Supports filtering by owner wallet, " +
-      "network (iot or mobile), maker, and H3 location index. Returns paginated results. " +
+      "network (iot or mobile), maker, and H3 location index. " +
+      "Set auto_paginate=true (default) to automatically fetch all pages. " +
       "Use 'networks' as a comma-separated string (e.g. 'iot,mobile').",
     inputSchema: {
       type: "object" as const,
       properties: {
-        owner:           { type: "string", description: "Owner wallet address (base58)" },
-        asset_id:        { type: "string", description: "Hotspot asset ID (base58)" },
-        ecc_key:         { type: "string", description: "Hotspot ECC public key" },
-        networks:        { type: "string", description: "Comma-separated networks: 'iot', 'mobile', or 'iot,mobile'" },
-        maker_id:        { type: "string", description: "Maker UUID" },
-        iot_location:    { type: "number", description: "H3 location index for IoT radio" },
-        mobile_location: { type: "number", description: "H3 location index for Mobile radio" },
-        page:            { type: "number", description: "Page number (1-indexed, default 1)" },
-        per_page:        { type: "number", description: "Results per page (default 100, max 250)" },
+        owner:           { type: "string",  description: "Owner wallet address (base58)" },
+        asset_id:        { type: "string",  description: "Hotspot asset ID (base58)" },
+        ecc_key:         { type: "string",  description: "Hotspot ECC public key" },
+        networks:        { type: "string",  description: "Comma-separated networks: 'iot', 'mobile', or 'iot,mobile'" },
+        maker_id:        { type: "string",  description: "Maker UUID" },
+        iot_location:    { type: "number",  description: "H3 location index for IoT radio" },
+        mobile_location: { type: "number",  description: "H3 location index for Mobile radio" },
+        page:            { type: "number",  description: "Page number — ignored when auto_paginate=true" },
+        per_page:        { type: "number",  description: "Results per page (default 250, max 250)" },
+        auto_paginate:   { type: "boolean", description: "Fetch all pages automatically (default true)" },
       },
     },
   },
@@ -67,12 +75,13 @@ const TOOLS: Tool[] = [
   // ── L2 Makers ──────────────────────────────────────────────────────────────
   {
     name: "list_makers",
-    description: "List all known Helium hotspot manufacturers (makers).",
+    description: "List all known Helium hotspot manufacturers (makers). Auto-fetches all pages by default.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        page:     { type: "number", description: "Page number (default 1)" },
-        per_page: { type: "number", description: "Results per page (default 100)" },
+        page:          { type: "number",  description: "Page number — ignored when auto_paginate=true" },
+        per_page:      { type: "number",  description: "Results per page (default 250)" },
+        auto_paginate: { type: "boolean", description: "Fetch all pages automatically (default true)" },
       },
     },
   },
@@ -94,16 +103,18 @@ const TOOLS: Tool[] = [
     description:
       "Retrieve IoT reward share records for a given date range. " +
       "Filter by hotspot_key (ECC key) and/or reward_type. " +
-      "Both 'from' and 'to' are required (ISO 8601, e.g. '2024-01-01T00:00:00Z').",
+      "Both 'from' and 'to' are required (ISO 8601, e.g. '2024-01-01T00:00:00Z'). " +
+      "Set auto_paginate=true (default) to fetch all pages automatically.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        from:        { type: "string", description: "Start datetime (ISO 8601, required)" },
-        to:          { type: "string", description: "End datetime (ISO 8601, required)" },
-        hotspot_key: { type: "string", description: "Hotspot ECC key to filter by" },
-        reward_type: { type: "string", description: "Reward type filter (e.g. 'beacon', 'witness', 'dc_transfer')" },
-        page:        { type: "number", description: "Page number (default 1)" },
-        per_page:    { type: "number", description: "Results per page (default 100)" },
+        from:          { type: "string",  description: "Start datetime (ISO 8601, required)" },
+        to:            { type: "string",  description: "End datetime (ISO 8601, required)" },
+        hotspot_key:   { type: "string",  description: "Hotspot ECC key to filter by" },
+        reward_type:   { type: "string",  description: "Reward type filter (e.g. 'beacon', 'witness', 'dc_transfer')" },
+        page:          { type: "number",  description: "Page number — ignored when auto_paginate=true" },
+        per_page:      { type: "number",  description: "Results per page (default 250)" },
+        auto_paginate: { type: "boolean", description: "Fetch all pages automatically (default true)" },
       },
       required: ["from", "to"],
     },
@@ -131,16 +142,18 @@ const TOOLS: Tool[] = [
     description:
       "Retrieve Mobile reward share records for a given date range. " +
       "Filter by hotspot_key and/or reward_type. " +
-      "Both 'from' and 'to' are required (ISO 8601).",
+      "Both 'from' and 'to' are required (ISO 8601). " +
+      "Set auto_paginate=true (default) to fetch all pages automatically.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        from:        { type: "string", description: "Start datetime (ISO 8601, required)" },
-        to:          { type: "string", description: "End datetime (ISO 8601, required)" },
-        hotspot_key: { type: "string", description: "Hotspot ECC key to filter by" },
-        reward_type: { type: "string", description: "Reward type filter" },
-        page:        { type: "number", description: "Page number (default 1)" },
-        per_page:    { type: "number", description: "Results per page (default 100)" },
+        from:          { type: "string",  description: "Start datetime (ISO 8601, required)" },
+        to:            { type: "string",  description: "End datetime (ISO 8601, required)" },
+        hotspot_key:   { type: "string",  description: "Hotspot ECC key to filter by" },
+        reward_type:   { type: "string",  description: "Reward type filter" },
+        page:          { type: "number",  description: "Page number — ignored when auto_paginate=true" },
+        per_page:      { type: "number",  description: "Results per page (default 250)" },
+        auto_paginate: { type: "boolean", description: "Fetch all pages automatically (default true)" },
       },
       required: ["from", "to"],
     },
@@ -166,13 +179,14 @@ const TOOLS: Tool[] = [
   // ── L1 Accounts ────────────────────────────────────────────────────────────
   {
     name: "list_accounts",
-    description: "List Helium L1 (legacy blockchain) accounts. Filter by address.",
+    description: "List Helium L1 (legacy blockchain) accounts. Filter by address. Auto-fetches all pages by default.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        address:  { type: "string", description: "Filter by L1 account address (base58)" },
-        page:     { type: "number", description: "Page number (default 1)" },
-        per_page: { type: "number", description: "Results per page (default 100)" },
+        address:       { type: "string",  description: "Filter by L1 account address (base58)" },
+        page:          { type: "number",  description: "Page number — ignored when auto_paginate=true" },
+        per_page:      { type: "number",  description: "Results per page (default 250)" },
+        auto_paginate: { type: "boolean", description: "Fetch all pages automatically (default true)" },
       },
     },
   },
@@ -193,18 +207,20 @@ const TOOLS: Tool[] = [
     name: "list_gateways",
     description:
       "List Helium L1 gateways (hotspots on the legacy blockchain). " +
-      "Filter by address, owner_address, payer_address, mode, name, or location_hex.",
+      "Filter by address, owner_address, payer_address, mode, name, or location_hex. " +
+      "Auto-fetches all pages by default.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        address:       { type: "string", description: "Gateway address (base58)" },
-        owner_address: { type: "string", description: "Owner address (base58)" },
-        payer_address: { type: "string", description: "Payer address (base58)" },
-        mode:          { type: "string", description: "Gateway mode (e.g. 'full', 'light', 'dataonly')" },
-        name:          { type: "string", description: "Gateway name (animal name)" },
-        location_hex:  { type: "string", description: "H3 hex location string" },
-        page:          { type: "number", description: "Page number (default 1)" },
-        per_page:      { type: "number", description: "Results per page (default 100)" },
+        address:       { type: "string",  description: "Gateway address (base58)" },
+        owner_address: { type: "string",  description: "Owner address (base58)" },
+        payer_address: { type: "string",  description: "Payer address (base58)" },
+        mode:          { type: "string",  description: "Gateway mode (e.g. 'full', 'light', 'dataonly')" },
+        name:          { type: "string",  description: "Gateway name (animal name)" },
+        location_hex:  { type: "string",  description: "H3 hex location string" },
+        page:          { type: "number",  description: "Page number — ignored when auto_paginate=true" },
+        per_page:      { type: "number",  description: "Results per page (default 250)" },
+        auto_paginate: { type: "boolean", description: "Fetch all pages automatically (default true)" },
       },
     },
   },
@@ -225,17 +241,19 @@ const TOOLS: Tool[] = [
     name: "list_transactions",
     description:
       "List Helium L1 transactions with optional filters. " +
-      "Filter by transaction_hash, type, block number, or time range.",
+      "Filter by transaction_hash, type, block number, or time range. " +
+      "Auto-fetches all pages by default.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        transaction_hash: { type: "string", description: "Transaction hash" },
-        type:             { type: "string", description: "Transaction type (e.g. 'payment_v2', 'add_gateway_v1')" },
-        block:            { type: "number", description: "Block height" },
-        from:             { type: "string", description: "Start time (ISO 8601)" },
-        to:               { type: "string", description: "End time (ISO 8601)" },
-        page:             { type: "number", description: "Page number (default 1)" },
-        per_page:         { type: "number", description: "Results per page (default 100)" },
+        transaction_hash: { type: "string",  description: "Transaction hash" },
+        type:             { type: "string",  description: "Transaction type (e.g. 'payment_v2', 'add_gateway_v1')" },
+        block:            { type: "number",  description: "Block height" },
+        from:             { type: "string",  description: "Start time (ISO 8601)" },
+        to:               { type: "string",  description: "End time (ISO 8601)" },
+        page:             { type: "number",  description: "Page number — ignored when auto_paginate=true" },
+        per_page:         { type: "number",  description: "Results per page (default 250)" },
+        auto_paginate:    { type: "boolean", description: "Fetch all pages automatically (default true)" },
       },
     },
   },
@@ -310,7 +328,8 @@ export function createServer(config: ServerConfig): { run: () => Promise<void> }
 
         // ── L2 Hotspots ──────────────────────────────────────────────────────
         case "list_hotspots": {
-          const data = await client.get("/v1/helium/l2/hotspots", {
+          const autoPaginate = args["auto_paginate"] !== false;
+          const filters = {
             owner:           args["owner"] as string,
             asset_id:        args["asset_id"] as string,
             ecc_key:         args["ecc_key"] as string,
@@ -318,8 +337,15 @@ export function createServer(config: ServerConfig): { run: () => Promise<void> }
             maker_id:        args["maker_id"] as string,
             iot_location:    args["iot_location"] as number,
             mobile_location: args["mobile_location"] as number,
-            page:            args["page"] as number,
-            per_page:        args["per_page"] as number,
+          };
+          if (autoPaginate) {
+            const data = await client.getAll<Hotspot>("/v1/helium/l2/hotspots", filters, {
+              perPage: (args["per_page"] as number) ?? 250,
+            });
+            return ok(data);
+          }
+          const data = await client.get("/v1/helium/l2/hotspots", {
+            ...filters, page: args["page"] as number, per_page: args["per_page"] as number,
           });
           return ok(data);
         }
@@ -331,9 +357,15 @@ export function createServer(config: ServerConfig): { run: () => Promise<void> }
 
         // ── L2 Makers ────────────────────────────────────────────────────────
         case "list_makers": {
+          const autoPaginate = args["auto_paginate"] !== false;
+          if (autoPaginate) {
+            const data = await client.getAll<Maker>("/v1/helium/l2/makers", {}, {
+              perPage: (args["per_page"] as number) ?? 250,
+            });
+            return ok(data);
+          }
           const data = await client.get("/v1/helium/l2/makers", {
-            page:     args["page"] as number,
-            per_page: args["per_page"] as number,
+            page: args["page"] as number, per_page: args["per_page"] as number,
           });
           return ok(data);
         }
@@ -345,19 +377,27 @@ export function createServer(config: ServerConfig): { run: () => Promise<void> }
 
         // ── L2 IoT Rewards ───────────────────────────────────────────────────
         case "get_iot_rewards": {
-          const data = await client.get("/v1/helium/l2/iot-reward-shares", {
+          const autoPaginate = args["auto_paginate"] !== false;
+          const filters = {
             from:        args["from"] as string,
             to:          args["to"] as string,
             hotspot_key: args["hotspot_key"] as string,
             reward_type: args["reward_type"] as string,
-            page:        args["page"] as number,
-            per_page:    args["per_page"] as number,
+          };
+          if (autoPaginate) {
+            const data = await client.getAll<IotRewardShare>("/v1/helium/l2/iot-reward-shares", filters, {
+              perPage: (args["per_page"] as number) ?? 250,
+            });
+            return ok(data);
+          }
+          const data = await client.get("/v1/helium/l2/iot-reward-shares", {
+            ...filters, page: args["page"] as number, per_page: args["per_page"] as number,
           });
           return ok(data);
         }
 
         case "get_iot_reward_totals": {
-          const data = await client.get("/v1/helium/l2/iot-reward-shares/totals", {
+          const data = await client.get<IotRewardTotals>("/v1/helium/l2/iot-reward-shares/totals", {
             from:        args["from"] as string,
             to:          args["to"] as string,
             hotspot_key: args["hotspot_key"] as string,
@@ -368,19 +408,27 @@ export function createServer(config: ServerConfig): { run: () => Promise<void> }
 
         // ── L2 Mobile Rewards ────────────────────────────────────────────────
         case "get_mobile_rewards": {
-          const data = await client.get("/v1/helium/l2/mobile-reward-shares", {
+          const autoPaginate = args["auto_paginate"] !== false;
+          const filters = {
             from:        args["from"] as string,
             to:          args["to"] as string,
             hotspot_key: args["hotspot_key"] as string,
             reward_type: args["reward_type"] as string,
-            page:        args["page"] as number,
-            per_page:    args["per_page"] as number,
+          };
+          if (autoPaginate) {
+            const data = await client.getAll<MobileRewardShare>("/v1/helium/l2/mobile-reward-shares", filters, {
+              perPage: (args["per_page"] as number) ?? 250,
+            });
+            return ok(data);
+          }
+          const data = await client.get("/v1/helium/l2/mobile-reward-shares", {
+            ...filters, page: args["page"] as number, per_page: args["per_page"] as number,
           });
           return ok(data);
         }
 
         case "get_mobile_reward_totals": {
-          const data = await client.get("/v1/helium/l2/mobile-reward-shares/totals", {
+          const data = await client.get<MobileRewardTotals>("/v1/helium/l2/mobile-reward-shares/totals", {
             from:        args["from"] as string,
             to:          args["to"] as string,
             hotspot_key: args["hotspot_key"] as string,
@@ -391,10 +439,16 @@ export function createServer(config: ServerConfig): { run: () => Promise<void> }
 
         // ── L1 Accounts ──────────────────────────────────────────────────────
         case "list_accounts": {
+          const autoPaginate = args["auto_paginate"] !== false;
+          const filters = { address: args["address"] as string };
+          if (autoPaginate) {
+            const data = await client.getAll<L1Account>("/v1/helium/l1/accounts", filters, {
+              perPage: (args["per_page"] as number) ?? 250,
+            });
+            return ok(data);
+          }
           const data = await client.get("/v1/helium/l1/accounts", {
-            address:  args["address"] as string,
-            page:     args["page"] as number,
-            per_page: args["per_page"] as number,
+            ...filters, page: args["page"] as number, per_page: args["per_page"] as number,
           });
           return ok(data);
         }
@@ -406,15 +460,23 @@ export function createServer(config: ServerConfig): { run: () => Promise<void> }
 
         // ── L1 Gateways ──────────────────────────────────────────────────────
         case "list_gateways": {
-          const data = await client.get("/v1/helium/l1/gateways", {
+          const autoPaginate = args["auto_paginate"] !== false;
+          const filters = {
             address:       args["address"] as string,
             owner_address: args["owner_address"] as string,
             payer_address: args["payer_address"] as string,
             mode:          args["mode"] as string,
             name:          args["name"] as string,
             location_hex:  args["location_hex"] as string,
-            page:          args["page"] as number,
-            per_page:      args["per_page"] as number,
+          };
+          if (autoPaginate) {
+            const data = await client.getAll<L1Gateway>("/v1/helium/l1/gateways", filters, {
+              perPage: (args["per_page"] as number) ?? 250,
+            });
+            return ok(data);
+          }
+          const data = await client.get("/v1/helium/l1/gateways", {
+            ...filters, page: args["page"] as number, per_page: args["per_page"] as number,
           });
           return ok(data);
         }
@@ -426,14 +488,22 @@ export function createServer(config: ServerConfig): { run: () => Promise<void> }
 
         // ── L1 Transactions ──────────────────────────────────────────────────
         case "list_transactions": {
-          const data = await client.get("/v1/helium/l1/transactions", {
+          const autoPaginate = args["auto_paginate"] !== false;
+          const filters = {
             transaction_hash: args["transaction_hash"] as string,
             type:             args["type"] as string,
             block:            args["block"] as number,
             from:             args["from"] as string,
             to:               args["to"] as string,
-            page:             args["page"] as number,
-            per_page:         args["per_page"] as number,
+          };
+          if (autoPaginate) {
+            const data = await client.getAll<L1Transaction>("/v1/helium/l1/transactions", filters, {
+              perPage: (args["per_page"] as number) ?? 250,
+            });
+            return ok(data);
+          }
+          const data = await client.get("/v1/helium/l1/transactions", {
+            ...filters, page: args["page"] as number, per_page: args["per_page"] as number,
           });
           return ok(data);
         }

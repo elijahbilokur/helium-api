@@ -3,9 +3,36 @@
   "version": "0.1.0",
   "description": "Relay API MCP server — Helium network data for LLM agents",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
   "bin": {
     "relay-mcp": "dist/index.js"
   },
+  "keywords": [
+    "mcp",
+    "helium",
+    "relay",
+    "llm",
+    "ai",
+    "iot"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/relaywirelessapi/helium-api.git",
+    "directory": "mcp"
+  },
+  "homepage": "https://relay.io",
+  "license": "MIT",
   "scripts": {
     "build": "tsc",
     "dev": "ts-node src/index.ts",

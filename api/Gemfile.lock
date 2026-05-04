@@ -542,7 +542,7 @@ GEM
       sorbet-runtime
       yard
     zeitwerk (2.7.2)
-    zlib (3.2.1)
+    zlib (3.2.3)
 
 PLATFORMS
   aarch64-linux
